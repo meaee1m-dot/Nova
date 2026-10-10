@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="NOVA TV">
+  <defs>
+    <linearGradient id="nv-n" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF4D4D"/>
+      <stop offset="0.5" stop-color="#E50914"/>
+      <stop offset="1" stop-color="#FFC24B"/>
+    </linearGradient>
+    <linearGradient id="nv-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d1d21"/>
+      <stop offset="1" stop-color="#070708"/>
+    </linearGradient>
+    <linearGradient id="nv-brd" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E50914"/>
+      <stop offset="0.55" stop-color="#7a0a10"/>
+      <stop offset="1" stop-color="#FFC24B"/>
+    </linearGradient>
+    <radialGradient id="nv-glow" cx="0.5" cy="0.36" r="0.66">
+      <stop offset="0" stop-color="#E50914" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#E50914" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="nv-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#nv-bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#nv-glow)"/>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="none" stroke="url(#nv-brd)" stroke-width="6" opacity="0.9"/>
+
+  <!-- letter N -->
+  <g filter="url(#nv-soft)" opacity="0.5">
+    <rect x="156" y="150" width="52" height="212" rx="10" fill="#E50914"/>
+    <rect x="304" y="150" width="52" height="212" rx="10" fill="#E50914"/>
+    <path d="M208 152 L304 362" stroke="#E50914" stroke-width="54" stroke-linecap="butt"/>
+  </g>
+  <g>
+    <rect x="156" y="150" width="52" height="212" rx="12" fill="url(#nv-n)"/>
+    <rect x="304" y="150" width="52" height="212" rx="12" fill="url(#nv-n)"/>
+    <path d="M208 152 L304 362" stroke="url(#nv-n)" stroke-width="54" stroke-linecap="butt"/>
+  </g>
+
+  <!-- nova spark -->
+  <path d="M404 118 L412 142 L436 150 L412 158 L404 182 L396 158 L372 150 L396 142 Z" fill="#FFC24B" opacity="0.95"/>
+</svg>

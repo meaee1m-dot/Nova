@@ -1,0 +1,27 @@
+{
+  "name": "novatv",
+  "version": "2.2.0",
+  "private": true,
+  "description": "NOVA TV — Arabic streaming site (static frontend + zero-dependency Node.js backend proxy)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "update": "node update-content.js",
+    "update:movies": "node update-content.js --only movies",
+    "update:series": "node update-content.js --only series",
+    "update:anime": "node update-content.js --only anime",
+    "update:channels": "node update-content.js --only channels",
+    "update:matches": "node update-matches.js --days 3",
+    "update:btolat": "node update-btolat.js",
+    "update:all": "node update-content.js && node update-matches.js --days 3 && node update-btolat.js",
+    "optimize": "node optimize.js",
+    "optimize:all": "node optimize.js --all",
+    "optimize:prezip": "node optimize.js --prezip",
+    "benchmark": "node benchmark.js",
+    "validate": "node validate.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

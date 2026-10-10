@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="48" viewBox="0 0 240 48" fill="none">
+  <defs>
+    <linearGradient id="cg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7a6d"/>
+      <stop offset="0.45" stop-color="#f44336"/>
+      <stop offset="1" stop-color="#b71c1c"/>
+    </linearGradient>
+    <linearGradient id="tg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#ffe3df"/>
+      <stop offset="1" stop-color="#ffb3aa"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd54f"/>
+      <stop offset="1" stop-color="#ff8f00"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- icon: rounded square with play + film perforations -->
+  <g filter="url(#glow)">
+    <rect x="3" y="7" width="34" height="34" rx="11" fill="url(#cg)"/>
+    <rect x="3" y="7" width="34" height="34" rx="11" fill="none" stroke="url(#ring)" stroke-width="1.4" opacity="0.85"/>
+    <rect x="7" y="11" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="7" y="18" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="7" y="25" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="7" y="32" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="30" y="11" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="30" y="18" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="30" y="25" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <rect x="30" y="32" width="3" height="3" rx="1" fill="#fff" opacity="0.85"/>
+    <path d="M16 16.5 L28 24 L16 31.5 Z" fill="#fff"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="46" y="33" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="900" letter-spacing="0.6" fill="url(#tg)">CIMA<tspan fill="#ff5a4d">PRO</tspan></text>
+</svg>
