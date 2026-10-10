@@ -16,6 +16,14 @@ services:
       # Leave it unset if you run from a normal residential IP.
       - key: OSCAR_PROXY
         sync: false
+      # Keep the static JSON snapshots fresh. The server refreshes them in the
+      # background every N hours (default 6). Set to 0 to disable.
+      - key: AUTO_REFRESH_HOURS
+        value: "6"
+      # Optional: enables GET /api/refresh?token=... so an external cron can
+      # trigger a refresh on demand. Leave unset to keep the endpoint disabled.
+      - key: REFRESH_TOKEN
+        sync: false
       # Optional: override the listening port (Render sets PORT automatically).
       - key: PORT
         value: "3000"
