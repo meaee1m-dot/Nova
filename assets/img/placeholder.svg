@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">
+<rect width="300" height="450" fill="#161b26"/>
+<g fill="#2a3140">
+<rect x="110" y="180" width="80" height="90" rx="8"/>
+<circle cx="150" cy="205" r="10"/>
+<circle cx="150" cy="245" r="10"/>
+<rect x="125" y="195" width="50" height="60" rx="4" fill="#161b26"/>
+</g>
+<text x="150" y="320" font-family="sans-serif" font-size="16" fill="#6b7484" text-anchor="middle">CIMA PRO</text>
+</svg>

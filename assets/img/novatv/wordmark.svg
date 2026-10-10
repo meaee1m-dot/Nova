@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 150" width="600" height="150" role="img" aria-label="NOVA TV">
+  <defs>
+    <linearGradient id="novaGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6C63C"/>
+      <stop offset="0.20" stop-color="#FFDD57"/>
+      <stop offset="0.36" stop-color="#FFF1A8"/>
+      <stop offset="0.50" stop-color="#F4C22E"/>
+      <stop offset="0.68" stop-color="#D89E0C"/>
+      <stop offset="0.85" stop-color="#B07E06"/>
+      <stop offset="1" stop-color="#8A5F03"/>
+    </linearGradient>
+    <linearGradient id="tvGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF5252"/>
+      <stop offset="1" stop-color="#C4080F"/>
+    </linearGradient>
+    <linearGradient id="tvGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF0B8"/>
+      <stop offset="1" stop-color="#E7B53A"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softGlow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="novaClip">
+      <text x="14" y="112" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="118" letter-spacing="2">NOVA</text>
+    </clipPath>
+  </defs>
+
+  <!-- soft golden halo behind the wordmark -->
+  <text x="14" y="112" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="118" letter-spacing="2" fill="#F7C948" opacity="0.35" filter="url(#softGlow)">NOVA</text>
+
+  <!-- TV badge -->
+  <rect x="392" y="40" width="150" height="76" rx="20" fill="url(#tvGrad)"/>
+  <rect x="392" y="40" width="150" height="76" rx="20" fill="none" stroke="url(#tvGold)" stroke-opacity="0.85" stroke-width="2.5"/>
+  <text x="467" y="98" text-anchor="middle" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="52" letter-spacing="3" fill="#FFFFFF">TV</text>
+
+  <!-- NOVA in polished gold -->
+  <text x="14" y="112" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="118" letter-spacing="2" fill="url(#novaGold)">NOVA</text>
+
+  <!-- moving shimmer highlight, clipped to the glyphs -->
+  <g clip-path="url(#novaClip)">
+    <rect x="-190" y="0" width="150" height="150" fill="url(#shine)" opacity="0.85">
+      <animate attributeName="x" from="-190" to="660" dur="3.6s" repeatCount="indefinite" begin="0.5s"/>
+    </rect>
+  </g>
+
+  <!-- thin sparkle glints -->
+  <g fill="#FFFFFF">
+    <circle cx="150" cy="30" r="2.4" opacity="0.0">
+      <animate attributeName="opacity" values="0;0.95;0" dur="3.6s" repeatCount="indefinite" begin="0.5s"/>
+    </circle>
+    <circle cx="360" cy="24" r="2.0" opacity="0.0">
+      <animate attributeName="opacity" values="0;0.9;0" dur="3.6s" repeatCount="indefinite" begin="1.4s"/>
+    </circle>
+    <circle cx="250" cy="40" r="1.6" opacity="0.0">
+      <animate attributeName="opacity" values="0;0.85;0" dur="3.6s" repeatCount="indefinite" begin="2.2s"/>
+    </circle>
+  </g>
+</svg>
