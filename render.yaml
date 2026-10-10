@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: novatv
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # The Oscar TV API returns EMPTY data to datacenter/cloud IPs (Render,
+      # Railway, AWS...). To get real watch servers you MUST point this at a
+      # residential/clean HTTP proxy, e.g. http://user:pass@host:port
+      # Leave it unset if you run from a normal residential IP.
+      - key: OSCAR_PROXY
+        sync: false
+      # Optional: override the listening port (Render sets PORT automatically).
+      - key: PORT
+        value: "3000"
