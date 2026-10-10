@@ -192,6 +192,25 @@ function writeJSON(file, obj) {
   console.log('  -> ' + path.relative(__dirname, file) + '  (' + kb + ' KB, ' + (obj.items ? obj.items.length + ' items' : 'home') + ')');
 }
 
+/* Safety net for unattended / scheduled runs: never clobber good data with an
+   empty (network failure) or suspiciously small (partial failure) result. */
+function safeWriteJSON(file, obj) {
+  const nextCount = obj.items ? obj.items.length : 0;
+  if (obj.items && nextCount === 0) {
+    console.warn('  ! skip ' + path.relative(__dirname, file) + ': empty result (keeping previous data)');
+    return;
+  }
+  if (obj.items && !LIMIT) {
+    let prevCount = 0;
+    try { prevCount = (JSON.parse(fs.readFileSync(file, 'utf8')).items || []).length; } catch (e) { }
+    if (prevCount > 0 && nextCount < prevCount * 0.5) {
+      console.warn('  ! skip ' + path.relative(__dirname, file) + ': suspiciously small (' + nextCount + ' < 50% of ' + prevCount + ') \u2014 keeping previous data');
+      return;
+    }
+  }
+  writeJSON(file, obj);
+}
+
 /* ---------------------------------------------------------- main */
 (async () => {
   const t0 = Date.now();
@@ -211,7 +230,7 @@ function writeJSON(file, obj) {
     const res = await fetchAll(kind, endpoint);
     cats[kind] = res;
     console.log(res.items.length + ' / ' + res.total);
-    writeJSON(path.join(DATA, 'oscar_' + kind + '.json'), {
+    safeWriteJSON(path.join(DATA, 'oscar_' + kind + '.json'), {
       total: res.total,
       generated: Date.now(),
       items: res.items,

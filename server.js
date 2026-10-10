@@ -60,6 +60,49 @@ const OSCAR_IMG = 'https://admin.dramaramadan.net';
 
 const FETCH_TIMEOUT = 20000;
 
+/* ---------------------------------------------------------- content refresh
+   Keeps the static JSON snapshots (movies / series / anime / channels / home,
+   fixtures, highlights) fresh. Two ways to trigger it:
+     \u2022 automatically, in-process, every AUTO_REFRESH_HOURS hours (default 6;
+       set AUTO_REFRESH_HOURS=0 to disable), and
+     \u2022 on demand, via GET /api/refresh?token=REFRESH_TOKEN (only enabled when
+       REFRESH_TOKEN is set, so it can be wired to an external cron).
+   The updaters are run as child processes and never block request handling. */
+const AUTO_REFRESH_HOURS = parseFloat(process.env.AUTO_REFRESH_HOURS || '6');
+const REFRESH_TOKEN = process.env.REFRESH_TOKEN || '';
+let REFRESHING = false;
+function runRefresh(reason) {
+  if (REFRESHING) { log('refresh: already running, skipping (' + reason + ')'); return false; }
+  REFRESHING = true;
+  log('refresh: start (' + reason + ')');
+  let spawn;
+  try { spawn = require('child_process').spawn; } catch (e) { REFRESHING = false; return false; }
+  const jobs = [
+    ['update-content.js', []],
+    ['update-matches.js', ['--days', '3']],
+    ['update-btolat.js', []],
+  ];
+  let i = 0;
+  const next = () => {
+    if (i >= jobs.length) { REFRESHING = false; log('refresh: done (' + reason + ')'); return; }
+    const job = jobs[i++];
+    const full = path.join(__dirname, job[0]);
+    if (!fs.existsSync(full)) { next(); return; }
+    let child;
+    try {
+      child = spawn(process.execPath, [full].concat(job[1]), { cwd: __dirname, env: process.env });
+    } catch (e) { log('refresh: spawn failed ' + job[0] + ': ' + e.message); next(); return; }
+    let tail = '';
+    const onData = (d) => { tail = (tail + d).slice(-400); };
+    child.stdout.on('data', onData);
+    child.stderr.on('data', onData);
+    child.on('close', (code) => { log('refresh: ' + job[0] + ' exited ' + code + (code ? ' :: ' + tail.trim() : '')); next(); });
+    child.on('error', (e) => { log('refresh: ' + job[0] + ' error ' + e.message); next(); });
+  };
+  next();
+  return true;
+}
+
 /* ---------------------------------------------------------- outbound proxy
    The Oscar API answers cloud/datacenter IPs with an empty `data:[]` payload
    (the real servers are only returned to "clean" residential IPs). When a
@@ -1093,6 +1136,13 @@ const server = http.createServer(async (req, res) => {
       return await handleOscarEpisode(req, res, q, true);
     if (pathname === '/api/health')
       return sendJSON(res, { status: 'ok', time: Date.now() });
+    if (pathname === '/api/refresh') {
+      const tok = q.get('token') || req.headers['x-refresh-token'] || '';
+      if (!REFRESH_TOKEN) return fail(res, 'refresh endpoint disabled', 403);
+      if (tok !== REFRESH_TOKEN) return fail(res, 'forbidden', 403);
+      const started = runRefresh('http');
+      return sendJSON(res, { status: started ? 'started' : 'busy' });
+    }
     if (pathname.indexOf('/api/') === 0) return fail(res, 'unknown endpoint', 404);
 
     return serveStatic(req, res, req.url);
@@ -1106,4 +1156,11 @@ server.listen(PORT, HOST, () => {
   log('NOVA TV backend listening on http://' + HOST + ':' + PORT);
   log('static root:', ROOT);
   log('oscar base :', OSCAR_BASE);
+  if (AUTO_REFRESH_HOURS > 0) {
+    log('auto-refresh: every ' + AUTO_REFRESH_HOURS + 'h (set AUTO_REFRESH_HOURS=0 to disable)');
+    setTimeout(() => runRefresh('boot'), 90 * 1000);
+    setInterval(() => runRefresh('schedule'), AUTO_REFRESH_HOURS * 3600 * 1000);
+  } else {
+    log('auto-refresh: disabled');
+  }
 });
