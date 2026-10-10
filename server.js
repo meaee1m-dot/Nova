@@ -115,7 +115,12 @@ function runRefresh(reason) {
    auto-detects a local Psiphon tunnel on 127.0.0.1:18080. The CDN itself is
    NOT proxied (it only needs the TDMuaHLS99 User-Agent). */
 let OSCAR_PROXY = process.env.OSCAR_PROXY || '';
-if (!OSCAR_PROXY) {
+/* When the host is a datacenter IP (e.g. a free Render/Koyeb instance) the
+   Oscar API always answers with an empty payload, so live calls are pointless
+   and slow. Set OSCAR_DISABLE_LIVE=1 to skip them entirely and serve the
+   pre-built watch cache (site/data/watch_cache.json) instantly. */
+const OSCAR_DISABLE_LIVE = /^(1|true|yes|on)$/i.test(process.env.OSCAR_DISABLE_LIVE || '');
+if (!OSCAR_PROXY && !OSCAR_DISABLE_LIVE) {
   (function probeLocalProxy() {
     let net;
     try { net = require('net'); } catch (e) { return; }
@@ -730,6 +735,8 @@ function detailFromItem(it, kind) {
    libiron_fingerprint.so. iron.js reimplements that signer. The signed
    message is the request PATH only (query string excluded). */
 const _oscarCache = new Map();
+let _oscarDownUntil = 0;
+let _oscarFails = 0;
 /* A blocked / rate-limited response is `{"status":"success","data":[]}` — an
    empty array where the caller expects a list/object. Detect it so we can
    retry. */
@@ -779,6 +786,11 @@ async function oscarLive(pathname, params, ttlMs) {
   const ttl = ttlMs == null ? 60000 : ttlMs;
   const hit = _oscarCache.get(key);
   if (hit && Date.now() - hit.t < ttl) return hit.v;
+  /* datacenter host with live disabled -> go straight to the pre-built cache */
+  if (OSCAR_DISABLE_LIVE) return null;
+  /* circuit breaker: with no proxy configured, a datacenter host always gets an
+     empty payload — skip the slow retries and let the caller use the cache */
+  if (!OSCAR_PROXY && Date.now() < _oscarDownUntil) return null;
   const headers = Object.assign(
     { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     iron.ironHeaders(u.pathname)
@@ -798,6 +810,14 @@ async function oscarLive(pathname, params, ttlMs) {
       log('oscar try', i, u.pathname + u.search, 'proxy=', proxy || 'direct', 'empty=', _oscarEmpty(j));
     if (!_oscarEmpty(j)) break;
     await _sleep(1500 * (i + 1));
+  }
+  if (!OSCAR_PROXY) {
+    if (_oscarEmpty(j)) {
+      _oscarFails++;
+      if (_oscarFails >= 3) _oscarDownUntil = Date.now() + 180000;
+    } else {
+      _oscarFails = 0;
+    }
   }
   if (_oscarCache.size > 800) _oscarCache.clear();
   _oscarCache.set(key, { t: Date.now(), v: j });
@@ -851,11 +871,26 @@ function channelMap() {
   return map;
 }
 
+/* ---- watch-link cache (built by prefetch_watch.js) ----------------------
+   The Oscar API blocks datacenter IPs, so a host without a residential proxy
+   would otherwise show no servers. This cache holds the real multi-quality
+   links fetched earlier; CDN media tokens are long-lived, so the cached links
+   keep working even when the live API is unreachable. */
+const WATCH_CACHE_FILE = path.join(DATA, 'watch_cache.json');
+function watchCache(pathKey) {
+  const c = readJSONCached(WATCH_CACHE_FILE);
+  if (!c) return null;
+  const hit = c[pathKey];
+  return hit && hit.data ? hit.data : null;
+}
+
 async function handleOscarChannel(req, res, q) {
   const id = q.get('id');
   if (!id) return fail(res, 'missing id', 400);
   const live = liveData(await oscarLive('/api/channels/show.php', { id: id }));
   if (live && live.streams && live.streams.length) return ok(res, live);
+  const cached = watchCache('/api/oscar/channel?id=' + id);
+  if (cached && cached.streams && cached.streams.length) return ok(res, cached);
   const map = channelMap();
   const ch = map[String(id)];
   if (!ch || !ch.streams.length) {
@@ -957,6 +992,17 @@ async function handleOscarDetail(req, res, q, kind) {
   if (live && live.id) {
     return ok(res, shapeDetail(live, kind));
   }
+  /* cache fallback: real multi-quality servers fetched earlier (survives the
+     datacenter-IP block on hosts without a residential proxy) */
+  const ck = {
+    movies: '/api/oscar/movie?id=',
+    series: '/api/oscar/series-detail?id=',
+    anime: '/api/oscar/anime-detail?id=',
+  }[kind];
+  const cached = ck ? watchCache(ck + id) : null;
+  if (cached && cached.id) {
+    return ok(res, shapeDetail(cached, kind));
+  }
   /* offline fallback: bundled catalog metadata (no fake servers — the real
      multi-quality servers come from the live API above) */
   const it = snapshotItem(kind, id);
@@ -973,6 +1019,10 @@ async function handleOscarEpisodes(req, res, q, isAnime) {
     const arr = Array.isArray(live) ? live : live.items || live.episodes || live.data || [];
     if (arr && arr.length) return ok(res, arr);
   }
+  const cached = watchCache(
+    (isAnime ? '/api/oscar/anime-episodes?season_id=' : '/api/oscar/episodes?season_id=') + seasonId
+  );
+  if (Array.isArray(cached) && cached.length) return ok(res, cached);
   return ok(res, []);
 }
 
@@ -984,6 +1034,10 @@ async function handleOscarEpisode(req, res, q, isAnime) {
   if (live && live.id) {
     return ok(res, shapeEpisode(live));
   }
+  const cached = watchCache(
+    (isAnime ? '/api/oscar/anime-episode?id=' : '/api/oscar/episode?id=') + id
+  );
+  if (cached && cached.id) return ok(res, shapeEpisode(cached));
   return ok(res, { id: id, watch_links: [], download_links: [] });
 }
 
