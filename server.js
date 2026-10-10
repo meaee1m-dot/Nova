@@ -1022,8 +1022,19 @@ function pickEncoding(req) {
 }
 function compressBody(buf, encoding) {
   try {
-    if (encoding === 'br') return zlib.brotliCompressSync(buf);
-    if (encoding === 'gz') return zlib.gzipSync(buf);
+    if (encoding === 'br') {
+      // Brotli quality 11 is very slow on anything but small files (it can take
+      // seconds on the multi-hundred-KB JSON snapshots). Step down to quality 6
+      // above 64 KB: ~10-50x faster with only ~10% larger output.
+      const q = buf.length > 64 * 1024 ? 6 : 11;
+      return zlib.brotliCompressSync(buf, {
+        params: {
+          [zlib.constants.BROTLI_PARAM_QUALITY]: q,
+          [zlib.constants.BROTLI_PARAM_SIZE_HINT]: buf.length,
+        },
+      });
+    }
+    if (encoding === 'gz') return zlib.gzipSync(buf, { level: 6 });
   } catch (e) {
     /* ignore */
   }
