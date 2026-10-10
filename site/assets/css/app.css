@@ -529,6 +529,7 @@ table.standings tr:hover td { background: rgba(255,255,255,.03); }
 .btolat-close { position: absolute; top: -14px; inset-inline-end: -14px; width: 38px; height: 38px; border-radius: 50%; background: var(--red); color: #fff; border: none; cursor: pointer; font-size: 16px; box-shadow: 0 6px 18px rgba(255,23,116,.5); }
 .btolat-player { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; position: relative; }
 .btolat-player video { width: 100%; height: 100%; display: block; }
+.btolat-player iframe { width: 100%; height: 100%; border: 0; display: block; }
 .btolat-modal-title { margin: 12px 4px 2px; font-size: 15px; font-weight: 800; color: #eee; line-height: 1.5; }
 .btolat-quals { margin: 12px 4px 0; }
 .btolat-quals .bq-label { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 800; color: #b8b8c0; margin-bottom: 9px; }

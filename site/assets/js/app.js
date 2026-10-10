@@ -1249,6 +1249,11 @@
       playerEl.innerHTML = playerNote('fa-spinner fa-spin', 'جارٍ تجهيز الفيديو…');
       api('/api/btolat/video', { id: id }).then(function (j) {
         var v = unwrap(j);
+        if (v && v.youtube) {
+          /* current btolat format: a YouTube embed */
+          playerEl.innerHTML = '<iframe class="btolat-embed" src="https://www.youtube.com/embed/' + esc(v.youtube) + '?autoplay=1&rel=0&modestbranding=1&playsinline=1" title="' + esc(v.title || title || '') + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>';
+          return;
+        }
         if (!v || !v.hls) { playerEl.innerHTML = playerNote('fa-triangle-exclamation', 'تعذّر تشغيل هذا الفيديو'); return; }
         var ref = '';
         try { ref = v.embed ? (new URL(v.embed)).origin + '/' : ''; } catch (e) { }

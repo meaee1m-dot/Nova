@@ -555,22 +555,32 @@ async function handleBtolatVideo(req, res, q) {
   if (!id) return fail(res, 'missing id', 400);
   const page = 'https://www.btolat.com/video/' + encodeURIComponent(id);
   let embed = '';
+  let youtube = '';
+  let title = '';
   try {
     const r = await fetchUrl(page, { ua: BROWSER_UA, timeout: 15000 });
     const html = r.body.toString('utf8');
-    const m = html.match(/https:\/\/nvtboo\.vortexvisionworks\.com\/embed\/[A-Za-z0-9_-]+/);
-    if (m) embed = m[0];
-    if (!embed) {
-      const any = html.match(/<iframe[^>]+src=["']([^"']+embed[^"']+)["']/i);
-      if (any) embed = new URL(any[1], page).href;
+    title = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+    // current btolat format: a YouTube embed (no server-side HLS extraction needed)
+    const yt = html.match(/(?:youtube\.com\/embed\/|youtu\.be\/|youtube\.com\/watch\?v=)([A-Za-z0-9_-]{6,})/);
+    if (yt) youtube = yt[1];
+    if (!youtube) {
+      const m = html.match(/https:\/\/nvtboo\.vortexvisionworks\.com\/embed\/[A-Za-z0-9_-]+/);
+      if (m) embed = m[0];
+      if (!embed) {
+        const any = html.match(/<iframe[^>]+src=["']([^"']+embed[^"']+)["']/i);
+        if (any) embed = new URL(any[1], page).href;
+      }
     }
   } catch (e) {
     return fail(res, 'could not load video page: ' + e.message, 502);
   }
+  if (youtube) {
+    return ok(res, { id: id, youtube: youtube, embed: 'https://www.youtube.com/embed/' + youtube, title: title });
+  }
   if (!embed) return fail(res, 'no embed found', 404);
 
   let hls = '';
-  let title = '';
   try {
     const r2 = await fetchUrl(embed, { ua: BROWSER_UA, ref: page, timeout: 15000 });
     const html = r2.body.toString('utf8');
@@ -585,7 +595,7 @@ async function handleBtolatVideo(req, res, q) {
     else if (hls && hls.indexOf('/') === 0) hls = 'https://aaa.vibedailyhighlights.com' + hls;
     else if (hls && !/^https?:/.test(hls))
       hls = 'https://aaa.vibedailyhighlights.com/' + hls.replace(/^\/+/, '');
-    title = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+    title = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || title;
   } catch (e) {
     return fail(res, 'could not load embed: ' + e.message, 502);
   }
