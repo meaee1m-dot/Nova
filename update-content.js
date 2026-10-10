@@ -26,6 +26,7 @@ const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 const iron = require('./iron.js');
+const netfetch = require('./netfetch.js');
 
 const BASE = (process.env.OSCAR_BASE || 'https://ostvapp.cam').replace(/\/+$/, '');
 const DATA = path.join(__dirname, 'site', 'data');
@@ -43,40 +44,27 @@ const ONLY = (argVal('--only', '') || '').split(',').map((s) => s.trim()).filter
 
 /* ---------------------------------------------------------- http */
 function getJSON(pathname, params) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(BASE + pathname);
-    if (params) Object.keys(params).forEach((k) => u.searchParams.set(k, params[k]));
-    const headers = Object.assign(
-      {
-        'User-Agent': UA,
-        Accept: 'application/json',
-        'Accept-Language': 'ar,en;q=0.8',
-        'X-Requested-With': 'XMLHttpRequest',
-        Referer: BASE + '/',
-        Origin: BASE,
-      },
-      iron.ironHeaders(u.pathname)
-    );
-    const lib = u.protocol === 'http:' ? http : https;
-    const req = lib.request(
-      { protocol: u.protocol, hostname: u.hostname, port: u.port || (u.protocol === 'http:' ? 80 : 443), path: u.pathname + u.search, method: 'GET', headers: headers },
-      (res) => {
-        const chunks = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => {
-          const body = Buffer.concat(chunks).toString('utf8');
-          if (res.statusCode >= 400) return reject(new Error('HTTP ' + res.statusCode + ' ' + pathname + ' :: ' + body.slice(0, 120)));
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            reject(new Error('bad JSON from ' + pathname + ' :: ' + body.slice(0, 120)));
-          }
-        });
-      }
-    );
-    req.setTimeout(25000, () => req.destroy(new Error('timeout ' + pathname)));
-    req.on('error', reject);
-    req.end();
+  const u = new URL(BASE + pathname);
+  if (params) Object.keys(params).forEach((k) => u.searchParams.set(k, params[k]));
+  const headers = Object.assign(
+    {
+      'User-Agent': UA,
+      Accept: 'application/json',
+      'Accept-Language': 'ar,en;q=0.8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Referer: BASE + '/',
+      Origin: BASE,
+    },
+    iron.ironHeaders(u.pathname)
+  );
+  return netfetch.request(u.href, { headers: headers, timeout: 25000 }).then((r) => {
+    const body = r.body.toString('utf8');
+    if (r.status >= 400) throw new Error('HTTP ' + r.status + ' ' + pathname + ' :: ' + body.slice(0, 120));
+    try {
+      return JSON.parse(body);
+    } catch (e) {
+      throw new Error('bad JSON from ' + pathname + ' :: ' + body.slice(0, 120));
+    }
   });
 }
 
@@ -239,19 +227,23 @@ function safeWriteJSON(file, obj) {
 
   // home feed built from the freshest catalogs (newest first)
   if (want('home') && cats.movies && cats.series && cats.anime) {
-    const byRate = (a, b) => (Number(b.r) || 0) - (Number(a.r) || 0);
-    const top = cats.movies.items
-      .concat(cats.series.items, cats.anime.items)
-      .slice()
-      .sort(byRate)
-      .slice(0, 60);
-    writeJSON(path.join(DATA, 'oscar_home.json'), {
-      movies: cats.movies.items.slice(0, 240),
-      series: cats.series.items.slice(0, 40),
-      anime: cats.anime.items.slice(0, 40),
-      top: top,
-      generated: Date.now(),
-    });
+    if (!cats.movies.items.length || !cats.series.items.length || !cats.anime.items.length) {
+      console.warn('  ! skip site/data/oscar_home.json: catalogs incomplete (keeping previous data)');
+    } else {
+      const byRate = (a, b) => (Number(b.r) || 0) - (Number(a.r) || 0);
+      const top = cats.movies.items
+        .concat(cats.series.items, cats.anime.items)
+        .slice()
+        .sort(byRate)
+        .slice(0, 60);
+      writeJSON(path.join(DATA, 'oscar_home.json'), {
+        movies: cats.movies.items.slice(0, 240),
+        series: cats.series.items.slice(0, 40),
+        anime: cats.anime.items.slice(0, 40),
+        top: top,
+        generated: Date.now(),
+      });
+    }
   }
 
   console.log('done in ' + ((Date.now() - t0) / 1000).toFixed(1) + 's');

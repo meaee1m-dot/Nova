@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 const iron = require('./iron.js');
+const netfetch = require('./netfetch.js');
 
 const BASE = (process.env.OSCAR_BASE || 'https://ostvapp.cam').replace(/\/+$/, '');
 const DATA = path.join(__dirname, 'site', 'data');
@@ -45,40 +46,27 @@ const to = toArg ? new Date(toArg + 'T00:00:00Z') : new Date(today.getTime() + W
 
 /* ---------------------------------------------------------- http */
 function getJSON(pathname, params) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(BASE + pathname);
-    if (params) Object.keys(params).forEach((k) => u.searchParams.set(k, params[k]));
-    const headers = Object.assign(
-      {
-        'User-Agent': UA,
-        Accept: 'application/json',
-        'Accept-Language': 'ar,en;q=0.8',
-        'X-Requested-With': 'XMLHttpRequest',
-        Referer: BASE + '/',
-        Origin: BASE,
-      },
-      iron.ironHeaders(u.pathname)
-    );
-    const lib = u.protocol === 'http:' ? http : https;
-    const req = lib.request(
-      { protocol: u.protocol, hostname: u.hostname, port: u.port || (u.protocol === 'http:' ? 80 : 443), path: u.pathname + u.search, method: 'GET', headers: headers },
-      (res) => {
-        const chunks = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => {
-          const body = Buffer.concat(chunks).toString('utf8');
-          if (res.statusCode >= 400) return reject(new Error('HTTP ' + res.statusCode + ' ' + pathname + ' :: ' + body.slice(0, 120)));
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            reject(new Error('bad JSON from ' + pathname + ' :: ' + body.slice(0, 120)));
-          }
-        });
-      }
-    );
-    req.setTimeout(25000, () => req.destroy(new Error('timeout ' + pathname)));
-    req.on('error', reject);
-    req.end();
+  const u = new URL(BASE + pathname);
+  if (params) Object.keys(params).forEach((k) => u.searchParams.set(k, params[k]));
+  const headers = Object.assign(
+    {
+      'User-Agent': UA,
+      Accept: 'application/json',
+      'Accept-Language': 'ar,en;q=0.8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Referer: BASE + '/',
+      Origin: BASE,
+    },
+    iron.ironHeaders(u.pathname)
+  );
+  return netfetch.request(u.href, { headers: headers, timeout: 25000 }).then((r) => {
+    const body = r.body.toString('utf8');
+    if (r.status >= 400) throw new Error('HTTP ' + r.status + ' ' + pathname + ' :: ' + body.slice(0, 120));
+    try {
+      return JSON.parse(body);
+    } catch (e) {
+      throw new Error('bad JSON from ' + pathname + ' :: ' + body.slice(0, 120));
+    }
   });
 }
 
@@ -147,8 +135,12 @@ function writeJSON(file, obj) {
     r.leagues.forEach((l) => (l.matches || []).forEach((m) => { if (m && m.id != null) ids.push(m.id); }));
   });
 
-  writeJSON(path.join(DATA, 'matches.json'), { generated: Math.floor(Date.now() / 1000), days: outDays });
-  console.log('  days: ' + Object.keys(outDays).length + '   matches: ' + ids.length);
+  if (Object.keys(outDays).length) {
+    writeJSON(path.join(DATA, 'matches.json'), { generated: Math.floor(Date.now() / 1000), days: outDays });
+    console.log('  days: ' + Object.keys(outDays).length + '   matches: ' + ids.length);
+  } else {
+    console.warn('  ! skip site/data/matches.json: no fixtures fetched (keeping previous data)');
+  }
 
   // per-match details
   const details = {};
@@ -161,8 +153,12 @@ function writeJSON(file, obj) {
       /* skip individual failures */
     }
   });
-  writeJSON(path.join(DATA, 'match_details.json'), { generated: Math.floor(Date.now() / 1000), details: details });
-  console.log('  details: ' + Object.keys(details).length);
+  if (Object.keys(details).length) {
+    writeJSON(path.join(DATA, 'match_details.json'), { generated: Math.floor(Date.now() / 1000), details: details });
+    console.log('  details: ' + Object.keys(details).length);
+  } else {
+    console.warn('  ! skip site/data/match_details.json: no details fetched (keeping previous data)');
+  }
   console.log('done in ' + ((Date.now() - t0) / 1000).toFixed(1) + 's');
 })().catch((e) => {
   console.error('UPDATE FAILED:', e && e.stack ? e.stack : e);

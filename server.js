@@ -88,9 +88,13 @@ function runRefresh(reason) {
     const job = jobs[i++];
     const full = path.join(__dirname, job[0]);
     if (!fs.existsSync(full)) { next(); return; }
+    // Make sure the child inherits the proxy the server auto-detected, otherwise
+    // the updaters would hit the API from a datacenter IP and get empty data.
+    const childEnv = Object.assign({}, process.env);
+    if (OSCAR_PROXY) childEnv.OSCAR_PROXY = OSCAR_PROXY;
     let child;
     try {
-      child = spawn(process.execPath, [full].concat(job[1]), { cwd: __dirname, env: process.env });
+      child = spawn(process.execPath, [full].concat(job[1]), { cwd: __dirname, env: childEnv });
     } catch (e) { log('refresh: spawn failed ' + job[0] + ': ' + e.message); next(); return; }
     let tail = '';
     const onData = (d) => { tail = (tail + d).slice(-400); };
