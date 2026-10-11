@@ -107,6 +107,57 @@ function runRefresh(reason) {
   return true;
 }
 
+/* ---------------------------------------------------------- remote data sync
+   On datacenter hosts (Render / Koyeb / Railway / Fly / ...) the in-process
+   updaters cannot reach the Oscar API (it answers cloud IPs with an empty
+   payload). A GitHub Actions workflow instead refreshes the JSON snapshots
+   every few minutes and commits them to the repo. This block pulls those
+   files from GitHub raw, so the running server always serves the freshest
+   data WITHOUT needing a redeploy on every commit.
+
+   Enable it with:
+     DATA_SYNC_URL=https://raw.githubusercontent.com/USER/REPO/main/site/data
+   (optional: DATA_SYNC_MINUTES, default 5; set 0 to only sync on boot). */
+const DATA_SYNC_URL = (process.env.DATA_SYNC_URL || '').replace(/\/+$/, '');
+const DATA_SYNC_MINUTES = parseFloat(process.env.DATA_SYNC_MINUTES || '5');
+const DATA_SYNC_FILES = [
+  'oscar_home.json',
+  'oscar_movies.json',
+  'oscar_series.json',
+  'oscar_anime.json',
+  'oscar_channels.json',
+  'matches.json',
+  'match_details.json',
+  'btolat.json',
+  'watch_cache.json',
+];
+let SYNCING = false;
+async function syncData(reason) {
+  if (!DATA_SYNC_URL || SYNCING) return false;
+  SYNCING = true;
+  let updated = 0;
+  for (const f of DATA_SYNC_FILES) {
+    try {
+      const r = await fetchUrl(DATA_SYNC_URL + '/' + f, { ua: BROWSER_UA, timeout: 30000 });
+      if (!r || r.status !== 200 || !r.body || r.body.length < 20) continue;
+      const txt = r.body.toString('utf8');
+      JSON.parse(txt); // validate before writing (never clobber with garbage)
+      const dest = path.join(DATA, f);
+      let cur = '';
+      try { cur = fs.readFileSync(dest, 'utf8'); } catch (e) {}
+      if (cur !== txt) {
+        fs.writeFileSync(dest, txt);
+        updated++;
+      }
+    } catch (e) {
+      /* keep the previous file on any error */
+    }
+  }
+  SYNCING = false;
+  if (updated) log('data-sync: ' + reason + ' -> ' + updated + ' file(s) updated');
+  return updated > 0;
+}
+
 /* ---------------------------------------------------------- outbound proxy
    The Oscar API answers cloud/datacenter IPs with an empty `data:[]` payload
    (the real servers are only returned to "clean" residential IPs). When a
@@ -120,18 +171,56 @@ let OSCAR_PROXY = process.env.OSCAR_PROXY || '';
    and slow. Set OSCAR_DISABLE_LIVE=1 to skip them entirely and serve the
    pre-built watch cache (site/data/watch_cache.json) instantly. */
 const OSCAR_DISABLE_LIVE = /^(1|true|yes|on)$/i.test(process.env.OSCAR_DISABLE_LIVE || '');
+
+/* ---------------------------------------------------------- bundled Psiphon
+   The Oscar API only returns the real watch servers to "clean" residential
+   IPs. So that the server works out-of-the-box on a datacenter host (Render,
+   Railway, Koyeb, Fly, AWS ...) we ship a static Psiphon client and start it
+   automatically, then route every /api/* call through its local HTTP proxy.
+   Disable with OSCAR_NO_PSIPHON=1 (e.g. if you already run your own proxy). */
+const OSCAR_NO_PSIPHON = /^(1|true|yes|on)$/i.test(process.env.OSCAR_NO_PSIPHON || '');
+const PSIPHON_BIN = process.env.PSIPHON_BIN || path.join(__dirname, 'tools', 'psiphon-tunnel-core');
+const PSIPHON_CFG = process.env.PSIPHON_CFG || path.join(__dirname, 'tools', 'psiphon.config.json');
+const PSIPHON_PORT = parseInt(process.env.PSIPHON_PORT || '18080', 10);
+let PSIPHON_CHILD = null;
+
+function startPsiphon() {
+  if (OSCAR_NO_PSIPHON) { log('psiphon: disabled (OSCAR_NO_PSIPHON)'); return; }
+  if (!fs.existsSync(PSIPHON_BIN) || !fs.existsSync(PSIPHON_CFG)) {
+    log('psiphon: not bundled, skipping');
+    return;
+  }
+  try {
+    const spawn = require('child_process').spawn;
+    PSIPHON_CHILD = spawn(PSIPHON_BIN, ['-config', PSIPHON_CFG], { cwd: __dirname, stdio: 'ignore' });
+    PSIPHON_CHILD.on('error', (e) => log('psiphon: spawn error ' + e.message));
+    PSIPHON_CHILD.on('exit', (c) => { log('psiphon: exited ' + c); PSIPHON_CHILD = null; });
+    log('psiphon: starting bundled tunnel (pid ' + PSIPHON_CHILD.pid + ')');
+  } catch (e) {
+    log('psiphon: failed to start ' + e.message);
+  }
+}
+
 if (!OSCAR_PROXY && !OSCAR_DISABLE_LIVE) {
+  startPsiphon();
+  /* Keep probing for a couple of minutes: Psiphon needs ~10-40s to establish
+     its tunnel before the local proxy port starts accepting connections. */
   (function probeLocalProxy() {
     let net;
     try { net = require('net'); } catch (e) { return; }
-    const s = net.connect(18080, '127.0.0.1');
-    s.on('connect', () => {
-      OSCAR_PROXY = 'http://127.0.0.1:18080';
-      log('oscar: local proxy detected ->', OSCAR_PROXY);
-      s.destroy();
-    });
-    s.on('error', () => {});
-    s.setTimeout(2000, () => s.destroy());
+    let tries = 0;
+    (function attempt() {
+      tries++;
+      const s = net.connect(PSIPHON_PORT, '127.0.0.1');
+      s.on('connect', () => {
+        OSCAR_PROXY = 'http://127.0.0.1:' + PSIPHON_PORT;
+        log('oscar: local proxy detected ->', OSCAR_PROXY);
+        s.destroy();
+      });
+      s.on('error', () => {});
+      s.setTimeout(2000, () => s.destroy());
+      if (tries < 30) setTimeout(attempt, 4000);
+    })();
   })();
 }
 
@@ -1231,5 +1320,12 @@ server.listen(PORT, HOST, () => {
     setInterval(() => runRefresh('schedule'), AUTO_REFRESH_HOURS * 3600 * 1000);
   } else {
     log('auto-refresh: disabled');
+  }
+  if (DATA_SYNC_URL) {
+    log('data-sync: every ' + DATA_SYNC_MINUTES + 'min from ' + DATA_SYNC_URL);
+    syncData('boot');
+    if (DATA_SYNC_MINUTES > 0) {
+      setInterval(() => syncData('schedule'), DATA_SYNC_MINUTES * 60000);
+    }
   }
 });

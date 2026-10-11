@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log*
+.git
+.gitignore
+.env
+.env.*
+*.log
+logs/
+_tmp/
+tmp/
+*.tmp
+__pycache__/
+*.pyc
+.psiphon_data

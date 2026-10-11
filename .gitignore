@@ -25,6 +25,10 @@ _tmp/
 tmp/
 *.tmp
 
+# psiphon runtime data
+.psiphon_data/
+tools/.psiphon_data/
+
 # python tooling cache
 __pycache__/
 *.pyc

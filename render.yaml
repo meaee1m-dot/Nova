@@ -10,16 +10,28 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
-      # The Oscar TV API returns EMPTY data to datacenter/cloud IPs (Render,
-      # Railway, AWS...). To get real watch servers you MUST point this at a
-      # residential/clean HTTP proxy, e.g. http://user:pass@host:port
-      # Leave it unset if you run from a normal residential IP.
+      # The server ships a static Psiphon client (tools/psiphon-tunnel-core)
+      # and starts it automatically, so it gets a residential exit IP and can
+      # fetch the REAL watch servers even from a datacenter host like Render.
+      # If you already run your own residential proxy, set OSCAR_PROXY below
+      # (e.g. http://user:pass@host:port) and set OSCAR_NO_PSIPHON=1.
       - key: OSCAR_PROXY
         sync: false
-      # Keep the static JSON snapshots fresh. The server refreshes them in the
-      # background every N hours (default 6). Set to 0 to disable.
+      - key: OSCAR_NO_PSIPHON
+        value: "0"
+      # The GitHub Actions workflow (update-content.yml) refreshes the JSON
+      # snapshots every 5 minutes and commits them to the repo. The server
+      # pulls those files from GitHub raw so it always serves fresh data
+      # WITHOUT a redeploy. (Change the branch if you don't use "main".)
+      - key: DATA_SYNC_URL
+        value: "https://raw.githubusercontent.com/meaee1m-dot/Nova/main/site/data"
+      - key: DATA_SYNC_MINUTES
+        value: "5"
+      # In-process refresh is disabled on the hosted instance (the datacenter
+      # IP can't reach the Oscar API reliably and GitHub Actions already keeps
+      # the snapshots fresh). Set to e.g. 6 to also refresh in-process.
       - key: AUTO_REFRESH_HOURS
-        value: "6"
+        value: "0"
       # Optional: enables GET /api/refresh?token=... so an external cron can
       # trigger a refresh on demand. Leave unset to keep the endpoint disabled.
       - key: REFRESH_TOKEN
