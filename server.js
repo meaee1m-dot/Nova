@@ -64,24 +64,37 @@ const FETCH_TIMEOUT = 20000;
    Keeps the static JSON snapshots (movies / series / anime / channels / home,
    fixtures, highlights) fresh. Two ways to trigger it:
      \u2022 automatically, in-process, every AUTO_REFRESH_HOURS hours (default 6;
-       set AUTO_REFRESH_HOURS=0 to disable), and
+       (see CONTENT_REFRESH_MINUTES / LIVE_REFRESH_MINUTES below), and
      \u2022 on demand, via GET /api/refresh?token=REFRESH_TOKEN (only enabled when
        REFRESH_TOKEN is set, so it can be wired to an external cron).
    The updaters are run as child processes and never block request handling. */
-const AUTO_REFRESH_HOURS = parseFloat(process.env.AUTO_REFRESH_HOURS || '6');
+const AUTO_REFRESH_HOURS = parseFloat(process.env.AUTO_REFRESH_HOURS || '0');
+/* Content (movies / series / anime / channels / home) refreshes every
+   CONTENT_REFRESH_MINUTES (default 60 = hourly).
+   Live data (fixtures + match details + btolat highlights) refreshes every
+   LIVE_REFRESH_MINUTES (default 2). Both can be set to 0 to disable. */
+const CONTENT_REFRESH_MINUTES = parseFloat(
+  process.env.CONTENT_REFRESH_MINUTES || (AUTO_REFRESH_HOURS > 0 ? String(AUTO_REFRESH_HOURS * 60) : '60')
+);
+const LIVE_REFRESH_MINUTES = parseFloat(process.env.LIVE_REFRESH_MINUTES || '2');
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN || '';
+const REFRESH_STATUS = { running: null, lastContent: 0, lastLive: 0, lastReason: '' };
 let REFRESHING = false;
-function runRefresh(reason) {
+function runRefresh(reason, scope) {
+  scope = scope || 'all';
   if (REFRESHING) { log('refresh: already running, skipping (' + reason + ')'); return false; }
   REFRESHING = true;
-  log('refresh: start (' + reason + ')');
+  REFRESH_STATUS.running = scope;
+  REFRESH_STATUS.lastReason = reason + ':' + scope;
+  log('refresh: start (' + reason + ', scope=' + scope + ')');
   let spawn;
   try { spawn = require('child_process').spawn; } catch (e) { REFRESHING = false; return false; }
-  const jobs = [
-    ['update-content.js', []],
-    ['update-matches.js', ['--days', '3']],
-    ['update-btolat.js', []],
-  ];
+  const jobs = [];
+  if (scope === 'content' || scope === 'all') jobs.push(['update-content.js', []]);
+  if (scope === 'live' || scope === 'all') {
+    jobs.push(['update-matches.js', ['--days', '3']]);
+    jobs.push(['update-btolat.js', []]);
+  }
   let i = 0;
   const next = () => {
     if (i >= jobs.length) { REFRESHING = false; log('refresh: done (' + reason + ')'); return; }
@@ -129,7 +142,6 @@ const DATA_SYNC_FILES = [
   'matches.json',
   'match_details.json',
   'btolat.json',
-  'watch_cache.json',
 ];
 let SYNCING = false;
 async function syncData(reason) {
@@ -853,6 +865,9 @@ async function _oscarAttempt(u, headers, proxy) {
 let _oscarChain = Promise.resolve();
 let _oscarLast = 0;
 const OSCAR_MIN_INTERVAL = parseInt(process.env.OSCAR_MIN_INTERVAL || '1100', 10);
+/* How long a live Oscar API response is cached in-process. 60s keeps the
+   fixtures / channels / match details fresh (the site polls every 25-30s). */
+const LIVE_CACHE_MS = Math.max(10, parseFloat(process.env.LIVE_CACHE_SECONDS || '60')) * 1000;
 function _oscarThrottle() {
   const run = _oscarChain.then(
     () =>
@@ -872,7 +887,7 @@ async function oscarLive(pathname, params, ttlMs) {
   const u = new URL(OSCAR_BASE + pathname);
   if (params) Object.keys(params).forEach((k) => u.searchParams.set(k, params[k]));
   const key = u.pathname + '?' + u.searchParams.toString();
-  const ttl = ttlMs == null ? 60000 : ttlMs;
+  const ttl = ttlMs == null ? LIVE_CACHE_MS : ttlMs;
   const hit = _oscarCache.get(key);
   if (hit && Date.now() - hit.t < ttl) return hit.v;
   /* datacenter host with live disabled -> go straight to the pre-built cache */
@@ -1293,13 +1308,26 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/oscar/anime-episode')
       return await handleOscarEpisode(req, res, q, true);
     if (pathname === '/api/health')
-      return sendJSON(res, { status: 'ok', time: Date.now() });
+      return sendJSON(res, {
+        status: 'ok',
+        time: Date.now(),
+        oscarProxy: !!OSCAR_PROXY,
+        refresh: {
+          running: REFRESH_STATUS.running,
+          contentEveryMin: CONTENT_REFRESH_MINUTES,
+          liveEveryMin: LIVE_REFRESH_MINUTES,
+          lastContent: REFRESH_STATUS.lastContent,
+          lastLive: REFRESH_STATUS.lastLive,
+          lastReason: REFRESH_STATUS.lastReason,
+        },
+      });
     if (pathname === '/api/refresh') {
       const tok = q.get('token') || req.headers['x-refresh-token'] || '';
       if (!REFRESH_TOKEN) return fail(res, 'refresh endpoint disabled', 403);
       if (tok !== REFRESH_TOKEN) return fail(res, 'forbidden', 403);
-      const started = runRefresh('http');
-      return sendJSON(res, { status: started ? 'started' : 'busy' });
+      const scope = q.get('scope') || 'all';
+      const started = runRefresh('http', scope);
+      return sendJSON(res, { status: started ? 'started' : 'busy', scope: scope });
     }
     if (pathname.indexOf('/api/') === 0) return fail(res, 'unknown endpoint', 404);
 
@@ -1314,12 +1342,19 @@ server.listen(PORT, HOST, () => {
   log('NOVA TV backend listening on http://' + HOST + ':' + PORT);
   log('static root:', ROOT);
   log('oscar base :', OSCAR_BASE);
-  if (AUTO_REFRESH_HOURS > 0) {
-    log('auto-refresh: every ' + AUTO_REFRESH_HOURS + 'h (set AUTO_REFRESH_HOURS=0 to disable)');
-    setTimeout(() => runRefresh('boot'), 90 * 1000);
-    setInterval(() => runRefresh('schedule'), AUTO_REFRESH_HOURS * 3600 * 1000);
+  if (CONTENT_REFRESH_MINUTES > 0) {
+    log('auto-refresh: content every ' + CONTENT_REFRESH_MINUTES + 'min (set CONTENT_REFRESH_MINUTES=0 to disable)');
+    setTimeout(() => runRefresh('boot', 'content'), 90 * 1000);
+    setInterval(() => runRefresh('schedule', 'content'), CONTENT_REFRESH_MINUTES * 60000);
   } else {
-    log('auto-refresh: disabled');
+    log('auto-refresh: content disabled');
+  }
+  if (LIVE_REFRESH_MINUTES > 0) {
+    log('auto-refresh: live every ' + LIVE_REFRESH_MINUTES + 'min (set LIVE_REFRESH_MINUTES=0 to disable)');
+    setTimeout(() => runRefresh('boot-live', 'live'), 45 * 1000);
+    setInterval(() => runRefresh('schedule-live', 'live'), LIVE_REFRESH_MINUTES * 60000);
+  } else {
+    log('auto-refresh: live disabled');
   }
   if (DATA_SYNC_URL) {
     log('data-sync: every ' + DATA_SYNC_MINUTES + 'min from ' + DATA_SYNC_URL);

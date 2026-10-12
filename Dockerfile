@@ -27,7 +27,11 @@ ENV NODE_ENV=production
 ENV PORT=3000
 # Start the bundled Psiphon tunnel automatically (set to 1 to disable).
 ENV OSCAR_NO_PSIPHON=0
-# Background snapshot refresh cadence (hours). 0 = rely on GitHub Actions.
+# Auto-refresh cadence (in-process). Content = movies/series/anime/channels/home
+# every hour; live = fixtures/details/highlights every 2 minutes.
+ENV CONTENT_REFRESH_MINUTES=60
+ENV LIVE_REFRESH_MINUTES=2
+ENV LIVE_CACHE_SECONDS=60
 ENV AUTO_REFRESH_HOURS=0
 # Pull the freshest JSON snapshots from GitHub raw (no redeploy needed).
 ENV DATA_SYNC_URL=https://raw.githubusercontent.com/meaee1m-dot/Nova/main/site/data

@@ -1,0 +1,20 @@
+{
+  "name": "NOVA TV — أفلام ومسلسلات وأنمي وبث مباشر",
+  "short_name": "NOVA TV",
+  "description": "منصّة NOVA TV العربية: أفلام ومسلسلات وأنمي ومباريات وقنوات مباشرة بجودات متعددة حتى 1080p — مجاناً وبدون إعلانات.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "categories": ["entertainment", "video", "movies"],
+  "icons": [
+    { "src": "assets/img/novatv/fav_192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/novatv/fav_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/novatv/fav_512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

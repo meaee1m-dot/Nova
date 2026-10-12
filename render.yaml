@@ -19,21 +19,27 @@ services:
         sync: false
       - key: OSCAR_NO_PSIPHON
         value: "0"
-      # The GitHub Actions workflow (update-content.yml) refreshes the JSON
-      # snapshots every 5 minutes and commits them to the repo. The server
-      # pulls those files from GitHub raw so it always serves fresh data
-      # WITHOUT a redeploy. (Change the branch if you don't use "main".)
+      # ---- auto-refresh cadence (in-process, no GitHub Actions needed) ----
+      # Movies / series / anime / channels / home  ->  every 60 min (hourly).
+      - key: CONTENT_REFRESH_MINUTES
+        value: "60"
+      # Fixtures / match details / btolat highlights  ->  every 2 min.
+      - key: LIVE_REFRESH_MINUTES
+        value: "2"
+      # How long a live Oscar API response is cached in-process (seconds).
+      - key: LIVE_CACHE_SECONDS
+        value: "60"
+      # (legacy) leave at 0 — the two vars above take over.
+      - key: AUTO_REFRESH_HOURS
+        value: "0"
+      # Optional safety net: pull the freshest JSON snapshots from GitHub raw
+      # (only helps if you also run the Actions workflow that commits them).
       - key: DATA_SYNC_URL
         value: "https://raw.githubusercontent.com/meaee1m-dot/Nova/main/site/data"
       - key: DATA_SYNC_MINUTES
         value: "5"
-      # In-process refresh is disabled on the hosted instance (the datacenter
-      # IP can't reach the Oscar API reliably and GitHub Actions already keeps
-      # the snapshots fresh). Set to e.g. 6 to also refresh in-process.
-      - key: AUTO_REFRESH_HOURS
-        value: "0"
-      # Optional: enables GET /api/refresh?token=... so an external cron can
-      # trigger a refresh on demand. Leave unset to keep the endpoint disabled.
+      # Optional: enables GET /api/refresh?token=...&scope=content|live|all so
+      # an external cron (cron-job.org, UptimeRobot, ...) can trigger a refresh.
       - key: REFRESH_TOKEN
         sync: false
       # Optional: override the listening port (Render sets PORT automatically).
