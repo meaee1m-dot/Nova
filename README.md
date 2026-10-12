@@ -106,22 +106,26 @@ git push -u origin main
 
 ## 4) النشر على الإنترنت (Deployment)
 
-### ✅ الخيار الموصى به: Render (مجاني — يعمل الفيديو)
+### ✅ الخيار الموصى به: SnapDeploy (مجاني تمامًا — **بدون كارت بنكي** — يعمل الفيديو)
 
-[Render](https://render.com) يستضيف خادم Node.js مجاناً، ويعمل الفيديو بشكل كامل، ويعيد النشر تلقائياً عند كل `push`.
+[SnapDeploy](https://snapdeploy.dev/register) منصة حاويات (Docker) على AWS Fargate، والخطة المجانية **بدون كارت** وبتقرأ الـ `Dockerfile` الجاهز عندنا تلقائيًا.
 
-1. أنشئ حساباً على [render.com](https://render.com) واربطه بحساب GitHub.
-2. **New → Web Service** ثم اختر مستودع `novatv`.
-3. اضبط الإعدادات:
-   - **Environment:** `Node`
-   - **Build Command:** `npm install` (أو اتركه فارغاً)
-   - **Start Command:** `node server.js`
-   - **Instance Type:** `Free`
-4. اضغط **Create Web Service**. بعد دقيقة ستحصل على رابط مثل `https://novatv.onrender.com`.
+1. أنشئ حسابًا على [snapdeploy.dev](https://snapdeploy.dev/register) (بإيميل أو GitHub — **بدون كارت**).
+2. **Deploy from GitHub** → اختر المستودع `meaee1m-dot/Nova` والفرع `main`.
+3. SnapDeploy هياخد الـ `Dockerfile` تلقائيًا (مش محتاج إعداد).
+4. (اختياري) Environment Variables: `CONTENT_REFRESH_MINUTES=60`, `LIVE_REFRESH_MINUTES=2`, `OSCAR_NO_PSIPHON=0`.
+5. **Deploy** → بعد كام دقيقة هتحصل على رابط مثل `https://novatv.containers.snapdeploy.app`.
 
-### بديل: Railway
+- الخطة المجانية: 4 حاويات · 100 ساعة/شهر · 512MB/0.25vCPU · **بدون كارت**.
+- الحاوية بتنام بعد 15 دقيقة من غير زوار وتصحى في ~60 ثانية.
 
-[Railway](https://railway.app) → **New Project → Deploy from GitHub repo** → اختر `novatv`. سيكتشف Node تلقائياً ويشغّل `npm start`.
+### بدائل بدون كارت: Back4App Containers
+
+[Back4App](https://www.back4app.com) → **Build → Containers → Deploy from GitHub** → اختر `Nova` (يبني من الـ `Dockerfile`). الخطة المجانية: 256MB · 0.25 CPU · 100GB · **بدون كارت** (بتقف بعد 60 دقيقة لكل نشر).
+
+### بديل: Render (750 ساعة/شهر)
+
+[Render](https://render.com) → **New → Blueprint** → اختر `Nova` (يقرأ `render.yaml`) → **Apply**. أو **New → Web Service** → Build: `npm install` · Start: `node server.js`. (قد يطلب تحقق بكارت في بعض الدول.)
 
 ### الخيار الثابت: GitHub Pages (بدون فيديو)
 
@@ -131,11 +135,11 @@ GitHub Pages يستضيف الواجهة فقط **بدون خادم**، لذا �
 2. **Settings → Pages → Source: Deploy from a branch → main / (root أو /site)**.
 3. عدّل `site/assets/js/config.js` واجعل:
    ```js
-   window.NOVATV_API = 'https://your-backend.onrender.com';
+   window.NOVATV_API = 'https://novatv.containers.snapdeploy.app';
    ```
-   (ضع رابط خادمك الذي نشرته في Render/Railway).
+   (ضع رابط خادمك الذي نشرته على SnapDeploy).
 
-> 🎯 **الخلاصة:** للفيديو الكامل استخدم **Render** (خادم Node). GitHub Pages يكفي للواجهة فقط.
+> 🎯 **الخلاصة:** للفيديو الكامل استخدم **SnapDeploy** (خادم Node، بدون كارت). GitHub Pages يكفي للواجهة فقط.
 
 ---
 
@@ -159,7 +163,7 @@ on:
 1. GitHub يشغّل السكريبتات `node update-content.js` ثم `node update-matches.js` ثم `node update-btolat.js` تلقائياً.
 2. السكربت يجلب أحدث البيانات ويكتبها في `site/data/oscar_*.json`.
 3. إذا تغيّر شيء، يعمل الـ workflow `commit` + `push`.
-4. إذا كان موقعك على **Render/Railway** مربوطاً بـ GitHub، فسيُعاد النشر تلقائياً بالبيانات الجديدة. ✅
+4. إذا كان موقعك على **SnapDeploy/Back4App/Render** مربوطاً بـ GitHub، فسيُعاد النشر تلقائياً بالبيانات الجديدة. ✅
 
 ### تشغيل التحديث يدوياً
 

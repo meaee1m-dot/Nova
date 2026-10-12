@@ -119,15 +119,16 @@ git push -u origin main
 
 | الخيار | الفيديو | الخطوات |
 |---|---|---|
-| **Render** (موصى به، مجاني) | ✅ يعمل | New → Web Service → اختر المستودع → Build: `npm install` → Start: `node server.js` |
-| **Railway** | ✅ يعمل | New Project → Deploy from GitHub repo |
+| **SnapDeploy** (موصى به، مجاني **بدون كارت**) | ✅ يعمل | Deploy from GitHub → اختر `Nova` → يقرأ الـ `Dockerfile` تلقائيًا |
+| **Back4App Containers** (بدون كارت) | ✅ يعمل | Build → Containers → Deploy from GitHub → يبني من الـ `Dockerfile` |
+| **Render** (750 ساعة/شهر) | ✅ يعمل | New → Blueprint → اختر `Nova` (يقرأ `render.yaml`) |
 | **GitHub Pages** | ❌ (بدون خادم) | Settings → Pages، ثم اضبط `NOVATV_API` في `config.js` على رابط خادمك |
 
 ### ج) التحديث التلقائي للمحتوى
 
 - الملف: `.github/workflows/update-content.yml` — يعمل كل **6 ساعات** (`cron: '0 */6 * * *'`) + تشغيل يدوي.
 - السكريبتات: `node update-content.js` (الأفلام/المسلسلات/الأنمي/القنوات) + `node update-matches.js` (المباريات) + `node update-btolat.js` (الملخصات/الأهداف) — تكتب كلها في `site/data/*.json`، ثم commit + push تلقائياً.
-- على Render/Railway سيُعاد النشر تلقائياً بالبيانات الجديدة.
+- على SnapDeploy/Back4App/Render سيُعاد النشر تلقائياً بالبيانات الجديدة.
 - تشغيل يدوي: **Actions → Update content (auto) → Run workflow**.
 - تشغيل محلي: `node update-content.js` (أو `--limit 200` / `--only movies,series`)، `node update-matches.js --days 3`، `node update-btolat.js`.
 
